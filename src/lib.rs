@@ -15,7 +15,6 @@ pub struct RayCastEngine {
     pub textures: HashMap<u32, (Texture2D, Color)>,
     pub plane_dist: f32,
     total_num_of_cols: f32,
-    angle_increment: f32,
 }
 
 impl RayCastEngine {
@@ -26,9 +25,6 @@ impl RayCastEngine {
         // the total number of rays/columns to draw
         let total_num_of_cols = (screen_width() as f32) / (WIDTH_3D as f32);
 
-        // the difference in angle between each ray
-        let angle_increment = FOV / total_num_of_cols;
-
         Self {
             map,
             map_size,
@@ -37,7 +33,6 @@ impl RayCastEngine {
             textures,
             plane_dist,
             total_num_of_cols,
-            angle_increment,
         }
     }
 
@@ -45,17 +40,25 @@ impl RayCastEngine {
 
         draw_rectangle(0., screen_height() / 2., screen_width(), screen_height(), DARKGRAY);
         draw_rectangle(0., 0., screen_width(), screen_height() / 2., SKYBLUE);
+        
+        let mut texture;
 
-        // subtracts half the FOV from the current camera angle 
-        let starting_angle = self.camera_angle - f32::to_radians(FOV / 2.);
         // go through the camera's FOV to find all collisions in front of them
         for i in 0..=(self.total_num_of_cols as u32) {
-            let mut texture = Texture2D::empty();
-            
-            // gets the current angle using the size of each column and the total screen size
-            let mut angle = starting_angle + f32::to_radians(self.angle_increment * i as f32);
-            if angle < 0.      { angle += 2. * PI; }
-            if angle > 2. * PI { angle -= 2. * PI; }
+            texture = Texture2D::empty();
+
+            // gets the current angle using the size of each column, the total screen size, and trigonometry
+            let dist_from_middle = ((self.total_num_of_cols / 2.) - i as f32)*WIDTH_3D as f32;
+            let angle_dist_from_plane = f32::sqrt(dist_from_middle.powi(2) + self.plane_dist.powi(2));
+            let mut angle = f32::acos((angle_dist_from_plane.powi(2) + self.plane_dist.powi(2) - dist_from_middle.powi(2)) / (2. * angle_dist_from_plane * self.plane_dist));
+
+            // flips angle on one side so image isn't mirrored down the middle
+            if i > (self.total_num_of_cols / 2.) as u32 {
+                angle = -angle;
+            }
+
+            // offsets the angle by the angle of the camera
+            angle = correct_angle(self.camera_angle - angle);
 
             // makes a normalized vector with the current angle
             let ray_dir = vec2(f32::cos(angle), f32::sin(angle)).normalize_or_zero();
@@ -147,7 +150,8 @@ impl RayCastEngine {
                 color);
 
             // removes the fisheye effect
-            distance = distance * f32::cos(self.camera_angle - angle);
+            let rel_angle = correct_angle(self.camera_angle - angle);
+            distance =  distance * f32::cos(rel_angle);
             
             let line_hight = (1. / distance) * self.plane_dist;
             let line_offset = (screen_height() as f32 / 2.) - line_hight / 2.;
@@ -189,4 +193,10 @@ impl RayCastEngine {
             }
         }
     }
+}
+
+pub fn correct_angle(angle: f32) -> f32 {
+    if angle > 2. * PI { angle - (2. * PI) }
+    else if angle < 0. { angle + (2. * PI) }
+    else { angle }
 }
