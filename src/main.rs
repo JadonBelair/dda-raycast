@@ -3,13 +3,13 @@ use macroquad::prelude::*;
 
 const FOV: f32 = 60.; // the players fov in degrees
 const WIDTH_3D: u32 = 1; // the width of each column when casting the rays and drawing the columns, the lower the value, the higher the resolution
-const WIDTH: u32 = 1280; // window width
-const HEIGHT: u32 = 720; // window height
+const WIDTH: u32 = 1920; // window width
+const HEIGHT: u32 = 1080; // window height
 const BLOCK_SIZE: f32 = 64.; // the size of the textures used for the walls
 const PLAYER_MOVE_SPEED: f32 = 8.; // the players move speed
 const PLAYER_TURN_SPEED: f32 = 2.; // the player turn speed
 const VIEW_DISTANCE: f32 = 30.; // how many grid spaces the player can see up to
-const MINIMAP_CELL_SIZE: u32 = 5; // how big each grid space will be in the minimap
+const MINIMAP_CELL_SIZE: f32 = 5.; // how big each grid space will be in the minimap
 const TOTAL_NUM_OF_COLS: f32 = (WIDTH as f32) / (WIDTH_3D as f32); // the total number of colums, uses the width of the window and the size of each column
 const ANGLE_INCREMENT: f32 = FOV / TOTAL_NUM_OF_COLS; // determines the angle increment between each column
 
@@ -18,7 +18,7 @@ fn window_conf() -> Conf {
         window_title: "RayCast Test".to_owned(),
         window_width: WIDTH as i32,
         window_height: HEIGHT as i32,
-        fullscreen: false,
+        fullscreen: true,
         window_resizable: false,
         ..Default::default()
     }
@@ -33,6 +33,12 @@ async fn main() {
     bricks.set_filter(FilterMode::Nearest);
     blackstone.set_filter(FilterMode::Nearest);
     planks.set_filter(FilterMode::Nearest);
+
+    let cols: Vec<Color> = vec![
+        get_average_texture_color(&bricks, BLOCK_SIZE, BLOCK_SIZE),
+        get_average_texture_color(&blackstone, BLOCK_SIZE, BLOCK_SIZE),
+        get_average_texture_color(&planks, BLOCK_SIZE, BLOCK_SIZE),
+    ];
     
     // precomputes the distance of the render plane from the player
     let plane_dist: f32 = ((WIDTH as f32) / 2.) / f32::tan(f32::to_radians(FOV / 2.));
@@ -171,7 +177,7 @@ async fn main() {
                 }
 
                 // checks if the current cell in the map is a wall
-                if current_map_cell.x >= 0 && (current_map_cell.x as u32) < map_size.x && current_map_cell.y >= 0 && (current_map_cell.y as u32) < map_size.y {
+                if current_map_cell.x >= 0 && current_map_cell.x < map_size.x as i32 && current_map_cell.y >= 0 && current_map_cell.y < map_size.y as i32 {
                     let current_cell = map[(current_map_cell.y * map_size.x as i32 + current_map_cell.x) as usize];
                     if current_cell > 0 {
                         match current_cell {
@@ -245,7 +251,8 @@ async fn main() {
             for x in 0..map_size.x {
                 let cell = map[(y * map_size.x + x) as usize];
                 if cell > 0 {
-                    draw_rectangle((x * MINIMAP_CELL_SIZE) as f32, (y * MINIMAP_CELL_SIZE) as f32, MINIMAP_CELL_SIZE as f32, MINIMAP_CELL_SIZE as f32, BLUE);
+                    let color = cols[(cell - 1) as usize];
+                    draw_rectangle(x as f32 * MINIMAP_CELL_SIZE, y as f32 * MINIMAP_CELL_SIZE as f32, MINIMAP_CELL_SIZE, MINIMAP_CELL_SIZE, color);
                 }
             }
         }
@@ -254,4 +261,21 @@ async fn main() {
 
         next_frame().await;
     }
+}
+
+fn get_average_texture_color(texture: &Texture2D, width: f32, height: f32) -> Color {
+    let image = texture.get_texture_data();
+    let mut total_r = 0.;
+    let mut total_g = 0.;
+    let mut total_b = 0.;
+    for y in 0..(BLOCK_SIZE as u32) {
+        for x in 0..(BLOCK_SIZE as u32) {
+            let pixel = image.get_pixel(x, y);
+            total_r += pixel.r;
+            total_g += pixel.g;
+            total_b += pixel.b;
+        }
+    }
+
+    Color::new(total_r / (width * height), total_g / (width * height), total_b / (width * height), 1.)
 }
