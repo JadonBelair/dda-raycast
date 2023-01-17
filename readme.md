@@ -17,4 +17,4 @@ A/D: look left/right
 - [ ] have nicer LDtk integration
 - [ ] add shaded floor/ceiling
 - [ ] add better collision system
-- [ ] make engine more modular / less dependant on game logic.
+- [X] make engine more modular / less dependant on game logic.
