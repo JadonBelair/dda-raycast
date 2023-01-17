@@ -16,3 +16,4 @@ A/D: look left/right
 - [ ] add easier way to make maps
 - [ ] add shaded floor/ceiling
 - [ ] add better collision system
+- [ ] make engine more modular / less dependant on game logic.
