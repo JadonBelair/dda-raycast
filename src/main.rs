@@ -1,10 +1,10 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, collections::HashMap};
 use macroquad::prelude::*;
 
 const FOV: f32 = 60.; // the players fov in degrees
 const WIDTH_3D: u32 = 1; // the width of each column when casting the rays and drawing the columns, the lower the value, the higher the resolution
-const WIDTH: u32 = 1920; // window width
-const HEIGHT: u32 = 1080; // window height
+const WIDTH: u32 = 1280; // window width
+const HEIGHT: u32 = 720; // window height
 const BLOCK_SIZE: f32 = 64.; // the size of the textures used for the walls
 const PLAYER_MOVE_SPEED: f32 = 8.; // the players move speed
 const PLAYER_TURN_SPEED: f32 = 2.; // the player turn speed
@@ -18,7 +18,7 @@ fn window_conf() -> Conf {
         window_title: "RayCast Test".to_owned(),
         window_width: WIDTH as i32,
         window_height: HEIGHT as i32,
-        fullscreen: true,
+        fullscreen: false,
         window_resizable: false,
         ..Default::default()
     }
@@ -34,11 +34,10 @@ async fn main() {
     blackstone.set_filter(FilterMode::Nearest);
     planks.set_filter(FilterMode::Nearest);
 
-    let cols: Vec<Color> = vec![
-        get_average_texture_color(&bricks, BLOCK_SIZE, BLOCK_SIZE),
-        get_average_texture_color(&blackstone, BLOCK_SIZE, BLOCK_SIZE),
-        get_average_texture_color(&planks, BLOCK_SIZE, BLOCK_SIZE),
-    ];
+    let mut textures: HashMap<u32, (Texture2D, Color)> = HashMap::new();
+    textures.insert(1, (bricks, get_average_texture_color(&bricks, 64, 64)));
+    textures.insert(2, (blackstone, get_average_texture_color(&blackstone, 64, 64)));
+    textures.insert(3, (planks, get_average_texture_color(&planks, 64, 64)));
     
     // precomputes the distance of the render plane from the player
     let plane_dist: f32 = ((WIDTH as f32) / 2.) / f32::tan(f32::to_radians(FOV / 2.));
@@ -51,7 +50,7 @@ async fn main() {
     let map_size = UVec2::new(32, 30);
 
     // the map that the player move through and look around in
-    let map: Vec<u8> = vec![
+    let map: Vec<u32> = vec![
         3,3,3,3,3,3,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
         3,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
         3,0,0,0,0,0,3,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
@@ -124,7 +123,9 @@ async fn main() {
             let mut texture = Texture2D::empty();
             
             // gets the current angle using the size of each column and the total screen size
-            let angle = starting_angle + f32::to_radians(ANGLE_INCREMENT * i as f32);
+            let mut angle = starting_angle + f32::to_radians(ANGLE_INCREMENT * i as f32);
+            if angle < 0.      { angle += 2. * PI; }
+            if angle > 2. * PI { angle -= 2. * PI; }
 
             // makes a normalized vector with the current angle
             let ray_dir = vec2(f32::cos(angle), f32::sin(angle)).normalize_or_zero();
@@ -180,11 +181,8 @@ async fn main() {
                 if current_map_cell.x >= 0 && current_map_cell.x < map_size.x as i32 && current_map_cell.y >= 0 && current_map_cell.y < map_size.y as i32 {
                     let current_cell = map[(current_map_cell.y * map_size.x as i32 + current_map_cell.x) as usize];
                     if current_cell > 0 {
-                        match current_cell {
-                            1 => texture = bricks,
-                            2 => texture = blackstone,
-                            3 => texture = planks,
-                            _ => ()
+                        if let Some(t) = textures.get(&current_cell) {
+                            texture = t.0;
                         }
                         tile_found = true;
                     }
@@ -251,7 +249,11 @@ async fn main() {
             for x in 0..map_size.x {
                 let cell = map[(y * map_size.x + x) as usize];
                 if cell > 0 {
-                    let color = cols[(cell - 1) as usize];
+                    let color = if let Some(c) = textures.get(&cell) {
+                        c.1
+                    } else {
+                        BLUE
+                    };
                     draw_rectangle(x as f32 * MINIMAP_CELL_SIZE, y as f32 * MINIMAP_CELL_SIZE as f32, MINIMAP_CELL_SIZE, MINIMAP_CELL_SIZE, color);
                 }
             }
@@ -263,13 +265,13 @@ async fn main() {
     }
 }
 
-fn get_average_texture_color(texture: &Texture2D, width: f32, height: f32) -> Color {
+fn get_average_texture_color(texture: &Texture2D, width: u32, height: u32) -> Color {
     let image = texture.get_texture_data();
     let mut total_r = 0.;
     let mut total_g = 0.;
     let mut total_b = 0.;
-    for y in 0..(BLOCK_SIZE as u32) {
-        for x in 0..(BLOCK_SIZE as u32) {
+    for y in 0..height {
+        for x in 0..width {
             let pixel = image.get_pixel(x, y);
             total_r += pixel.r;
             total_g += pixel.g;
@@ -277,5 +279,5 @@ fn get_average_texture_color(texture: &Texture2D, width: f32, height: f32) -> Co
         }
     }
 
-    Color::new(total_r / (width * height), total_g / (width * height), total_b / (width * height), 1.)
+    Color::new(total_r / (width * height) as f32, total_g / (width * height) as f32, total_b / (width * height) as f32, 1.)
 }
