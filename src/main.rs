@@ -1,5 +1,6 @@
-use std::{f32::consts::PI, collections::HashMap};
+use std::{f32::consts::PI, collections::HashMap, fs, io::Read};
 use macroquad::prelude::*;
+use serde_json::Value;
 
 const FOV: f32 = 60.; // the players fov in degrees
 const WIDTH_3D: u32 = 1; // the width of each column when casting the rays and drawing the columns, the lower the value, the higher the resolution
@@ -26,6 +27,13 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
+
+    let mut level_data = String::new();
+    fs::File::open("test_level.ldtk").unwrap().read_to_string(&mut level_data).unwrap();
+    let level: Value = serde_json::from_str(level_data.as_str()).unwrap();
+    let level: &Value = &level["levels"][0]["layerInstances"];
+
+
     let bricks = load_texture("bricks.png").await.unwrap();
     let blackstone = load_texture("polished_blackstone_bricks.png").await.unwrap();
     let planks = load_texture("oak_planks.png").await.unwrap();
@@ -43,45 +51,14 @@ async fn main() {
     let plane_dist: f32 = ((WIDTH as f32) / 2.) / f32::tan(f32::to_radians(FOV / 2.));
 
     // initial player position and rotation
-    let mut player = vec2(16., 15.);
+    let mut player = vec2(level[0]["entityInstances"][0]["__grid"][0].as_f64().unwrap() as f32 + 0.5, level[0]["entityInstances"][0]["__grid"][1].as_f64().unwrap() as f32 + 0.5);
     let mut player_angle = 0.;
 
     // the size of the map
-    let map_size = UVec2::new(32, 30);
+    let map_size = UVec2::new(level[1]["__cWid"].as_u64().unwrap() as u32, level[1]["__cHei"].as_u64().unwrap() as u32);
 
-    // the map that the player move through and look around in
-    let map: Vec<u32> = vec![
-        3,3,3,3,3,3,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-        3,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        3,0,0,0,0,0,3,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        3,0,0,0,0,0,3,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        3,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        3,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        3,0,0,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,3,0,0,0,0,2,2,2,2,0,0,2,2,2,2,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,1,
-        1,1,1,0,0,1,1,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,2,2,2,2,0,0,2,2,2,2,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,2,2,2,2,2,2,0,0,2,2,2,2,3,3,3,0,0,3,3,3,1,0,0,1,1,1,
-        1,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,3,0,0,0,0,0,1,
-        1,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,1,1,1,1,1,1,
-        ];
+    // the map that the can player move through and look around in
+    let map: Vec<u32> = level[1]["intGridCsv"].as_array().unwrap().iter().map(|v| v.as_u64().unwrap() as u32).collect();
 
     loop {
         clear_background(BLACK);

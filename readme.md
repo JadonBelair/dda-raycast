@@ -13,7 +13,8 @@ A/D: look left/right
 [all textures come from the Faithful 64x minecraft resource pack](https://github.com/Faithful-Resource-Pack/Faithful-Java-64x)
 
 ## TODO
-- [ ] add easier way to make maps
+- [X] add easier way to make maps
+- [ ] have nicer LDtk integration
 - [ ] add shaded floor/ceiling
 - [ ] add better collision system
 - [ ] make engine more modular / less dependant on game logic.
