@@ -1,14 +1,17 @@
 use std::f32::consts::PI;
 use macroquad::prelude::*;
 
-const FOV: u32 = 60;
-const WIDTH_3D: u32 = 1;
-const WIDTH: u32 = 1280;
-const HEIGHT: u32 = 720;
-const BLOCK_SIZE: f32 = 64.0;
-const PLAYER_MOVE_SPEED: f32 = 8.;
-const PLAYER_TURN_SPEED: f32 = 2.0;
-const VIEW_DISTANCE: f32 = 30.0;
+const FOV: f32 = 60.; // the players fov in degrees
+const WIDTH_3D: u32 = 1; // the width of each column when casting the rays and drawing the columns, the lower the value, the higher the resolution
+const WIDTH: u32 = 1280; // window width
+const HEIGHT: u32 = 720; // window height
+const BLOCK_SIZE: f32 = 64.; // the size of the textures used for the walls
+const PLAYER_MOVE_SPEED: f32 = 8.; // the players move speed
+const PLAYER_TURN_SPEED: f32 = 2.; // the player turn speed
+const VIEW_DISTANCE: f32 = 30.; // how many grid spaces the player can see up to
+const MINIMAP_CELL_SIZE: u32 = 5; // how big each grid space will be in the minimap
+const TOTAL_NUM_OF_COLS: f32 = (WIDTH as f32) / (WIDTH_3D as f32); // the total number of colums, uses the width of the window and the size of each column
+const ANGLE_INCREMENT: f32 = FOV / TOTAL_NUM_OF_COLS; // determines the angle increment between each column
 
 fn window_conf() -> Conf {
     Conf {
@@ -26,14 +29,18 @@ async fn main() {
     let bricks = load_texture("bricksx64.png").await.unwrap();
     bricks.set_filter(FilterMode::Nearest);
     
-    let plane_dist: f32 = ((WIDTH as f32) / 2.) / f32::tan(f32::to_radians((FOV as f32) / 2.0));
+    // precomputes the distance of the render plane from the player
+    let plane_dist: f32 = ((WIDTH as f32) / 2.) / f32::tan(f32::to_radians(FOV / 2.));
 
+    // initial player position and rotation
     let mut player = vec2(16., 15.);
     let mut player_angle = 0.;
-    let map_size = UVec2::new(32, 30);
-    let cell_size = 5;
 
-    let map: Vec<u32> = vec![
+    // the size of the map
+    let map_size = UVec2::new(32, 30);
+
+    // the map that the player move through and look around in
+    let map: Vec<u8> = vec![
         1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
         1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
         1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
@@ -68,41 +75,44 @@ async fn main() {
 
     loop {
         clear_background(BLACK);
+        let delta_time = get_frame_time();
 
         // updates the players viewing angle
-        if is_key_down(KeyCode::A) { player_angle -= PLAYER_TURN_SPEED * get_frame_time(); }
-        if is_key_down(KeyCode::D) { player_angle += PLAYER_TURN_SPEED * get_frame_time(); }
+        if is_key_down(KeyCode::A) { player_angle -= PLAYER_TURN_SPEED * delta_time; }
+        if is_key_down(KeyCode::D) { player_angle += PLAYER_TURN_SPEED * delta_time; }
 
         // limits the viewing angle to be between 0-2PI
-        if player_angle < 0.0      { player_angle = 2.0 * PI; }
-        if player_angle > 2.0 * PI { player_angle = 0.0; }
+        if player_angle < 0.      { player_angle = 2. * PI; }
+        if player_angle > 2. * PI { player_angle = 0.; }
 
         // moves the player forward or backwards
         // with super basic collision detection
         if is_key_down(KeyCode::W) {
-            player.x += f32::cos(player_angle) * get_frame_time() * PLAYER_MOVE_SPEED;
-            player.y += f32::sin(player_angle) * get_frame_time() * PLAYER_MOVE_SPEED;
+            player.x += f32::cos(player_angle) * delta_time * PLAYER_MOVE_SPEED;
+            player.y += f32::sin(player_angle) * delta_time * PLAYER_MOVE_SPEED;
 
             if map[((player.y as u32) * map_size.x + (player.x as u32)) as usize] == 1 {
-                player.x -= f32::cos(player_angle) * get_frame_time() * PLAYER_MOVE_SPEED;
-                player.y -= f32::sin(player_angle) * get_frame_time() * PLAYER_MOVE_SPEED;
+                player.x -= f32::cos(player_angle) * delta_time * PLAYER_MOVE_SPEED;
+                player.y -= f32::sin(player_angle) * delta_time * PLAYER_MOVE_SPEED;
             }
         }
         if is_key_down(KeyCode::S) {
-            player.x -= f32::cos(player_angle) * get_frame_time() * PLAYER_MOVE_SPEED;
-            player.y -= f32::sin(player_angle) * get_frame_time() * PLAYER_MOVE_SPEED;
+            player.x -= f32::cos(player_angle) * delta_time * PLAYER_MOVE_SPEED;
+            player.y -= f32::sin(player_angle) * delta_time * PLAYER_MOVE_SPEED;
 
             if map[((player.y as u32) * map_size.x + (player.x as u32)) as usize] == 1 {
-                player.x += f32::cos(player_angle) * get_frame_time() * PLAYER_MOVE_SPEED;
-                player.y += f32::sin(player_angle) * get_frame_time() * PLAYER_MOVE_SPEED;
+                player.x += f32::cos(player_angle) * delta_time * PLAYER_MOVE_SPEED;
+                player.y += f32::sin(player_angle) * delta_time * PLAYER_MOVE_SPEED;
             }
         }
 
-        let starting_angle = player_angle - f32::to_radians(30 as f32);
-        // go through 60 degrees around the player's viewing angle to find all collisions in front of them
-        for i in 0..=(WIDTH / WIDTH_3D as u32) {
-
-            let angle = starting_angle + f32::to_radians((FOV as f32 / (WIDTH as f32 / WIDTH_3D as f32)) * i as f32);
+        // subtracts half the FOV from the current player angle 
+        let starting_angle = player_angle - f32::to_radians(FOV / 2.);
+        // go through the player's FOV to find all collisions in front of them
+        for i in 0..=(TOTAL_NUM_OF_COLS as u32) {
+            
+            // gets the current angle using the size of each column and the total screen size
+            let angle = starting_angle + f32::to_radians(ANGLE_INCREMENT * i as f32);
 
             // makes a normalized vector with the current angle
             let ray_dir = vec2(f32::cos(angle), f32::sin(angle)).normalize_or_zero();
@@ -164,14 +174,15 @@ async fn main() {
 
             let end_point = ray_dir * distance + player;
 
+            // uses how far into a cell the ray collided to decide where to sample the texture from
             let sub_image = if col_y {
-                Rect::new( (end_point.y % end_point.y.floor() * BLOCK_SIZE).floor(), 0.0, 1., BLOCK_SIZE)
+                Rect::new( (end_point.y % end_point.y.floor() * BLOCK_SIZE).floor(), 0., 1., BLOCK_SIZE)
             } else {
-                Rect::new( (end_point.x % end_point.x.floor() * BLOCK_SIZE).floor(), 0.0, 1., BLOCK_SIZE)
+                Rect::new( (end_point.x % end_point.x.floor() * BLOCK_SIZE).floor(), 0., 1., BLOCK_SIZE)
             };
 
-            let shade = 1.0 - distance/VIEW_DISTANCE;
-            let color = Color::new(1. * shade, 1.0 * shade, 1.0 * shade, 1.0);
+            let shade = 1. - distance/VIEW_DISTANCE;
+            let color = Color::new(1. * shade, 1. * shade, 1. * shade, 1.);
 
             let mut intersection = Vec2::default();
             if tile_found {
@@ -179,17 +190,17 @@ async fn main() {
             }
 
             // draws the current raycast line on the minimap
-            draw_line(player.x * cell_size as f32, player.y * cell_size as f32,  end_point.x * cell_size as f32, end_point.y * cell_size as f32, 1., color);
+            draw_line(player.x * MINIMAP_CELL_SIZE as f32, player.y * MINIMAP_CELL_SIZE as f32,  end_point.x * MINIMAP_CELL_SIZE as f32, end_point.y * MINIMAP_CELL_SIZE as f32, 1., color);
             
             // draws a circle at the collision point on the minimap
             if tile_found {
-                draw_circle(intersection.x * cell_size as f32, intersection.y * cell_size as f32, 2., YELLOW);
+                draw_circle(intersection.x * MINIMAP_CELL_SIZE as f32, intersection.y * MINIMAP_CELL_SIZE as f32, 2., YELLOW);
             }
 
             distance = distance * f32::cos(player_angle - angle);
             
             let line_hight = (1. / distance) * plane_dist;
-            let line_offset = (HEIGHT as f32 / 2.) - line_hight/2.0;
+            let line_offset = (HEIGHT as f32 / 2.) - line_hight / 2.;
             draw_texture_ex(
                 bricks, 
                 (i * WIDTH_3D) as f32, 
@@ -203,16 +214,16 @@ async fn main() {
         }
         
         // draws the player and its direction
-        draw_circle(player.x * cell_size as f32, player.y * cell_size as f32, 2., RED);
+        draw_circle(player.x * MINIMAP_CELL_SIZE as f32, player.y * MINIMAP_CELL_SIZE as f32, 2., RED);
         let player_dir_ray = vec2(f32::cos(player_angle), f32::sin(player_angle)) + player;
-        draw_line(player.x * cell_size as f32, player.y * cell_size as f32, player_dir_ray.x * cell_size as f32, player_dir_ray.y * cell_size as f32, 2., RED);
+        draw_line(player.x * MINIMAP_CELL_SIZE as f32, player.y * MINIMAP_CELL_SIZE as f32, player_dir_ray.x * MINIMAP_CELL_SIZE as f32, player_dir_ray.y * MINIMAP_CELL_SIZE as f32, 2., RED);
 
         // draw the minimap
         for y in 0..map_size.y {
             for x in 0..map_size.x {
                 let cell = map[(y * map_size.x + x) as usize];
                 if cell == 1 {
-                    draw_rectangle((x * cell_size) as f32, (y * cell_size) as f32, cell_size as f32, cell_size as f32, BLUE);
+                    draw_rectangle((x * MINIMAP_CELL_SIZE) as f32, (y * MINIMAP_CELL_SIZE) as f32, MINIMAP_CELL_SIZE as f32, MINIMAP_CELL_SIZE as f32, BLUE);
                 }
             }
         }
