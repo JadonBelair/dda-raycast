@@ -29,7 +29,10 @@ async fn main() {
     let bricks = load_texture("bricks.png").await.unwrap();
     let blackstone = load_texture("polished_blackstone_bricks.png").await.unwrap();
     let planks = load_texture("oak_planks.png").await.unwrap();
+    
     bricks.set_filter(FilterMode::Nearest);
+    blackstone.set_filter(FilterMode::Nearest);
+    planks.set_filter(FilterMode::Nearest);
     
     // precomputes the distance of the render plane from the player
     let plane_dist: f32 = ((WIDTH as f32) / 2.) / f32::tan(f32::to_radians(FOV / 2.));
