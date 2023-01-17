@@ -26,7 +26,9 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let bricks = load_texture("bricksx64.png").await.unwrap();
+    let bricks = load_texture("bricks.png").await.unwrap();
+    let blackstone = load_texture("polished_blackstone_bricks.png").await.unwrap();
+    let planks = load_texture("oak_planks.png").await.unwrap();
     bricks.set_filter(FilterMode::Nearest);
     
     // precomputes the distance of the render plane from the player
@@ -41,36 +43,36 @@ async fn main() {
 
     // the map that the player move through and look around in
     let map: Vec<u8> = vec![
-        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+        3,3,3,3,3,3,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+        3,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
+        3,0,0,0,0,0,3,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+        3,0,0,0,0,0,3,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
+        3,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
+        3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
+        3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
+        3,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
+        3,0,0,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
+        1,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
+        1,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
+        1,0,0,0,0,0,3,0,0,0,0,2,2,2,2,0,0,2,2,2,2,0,0,0,0,1,0,0,0,0,0,1,
+        1,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,1,
+        1,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,1,
         1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
+        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
+        1,0,0,0,0,0,1,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,1,
+        1,1,1,0,0,1,1,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,1,
+        1,0,0,0,0,0,1,0,0,0,0,2,0,0,0,0,0,0,0,0,2,0,0,0,0,1,0,0,0,0,0,1,
+        1,0,0,0,0,0,1,0,0,0,0,2,2,2,2,0,0,2,2,2,2,0,0,0,0,1,0,0,0,0,0,1,
         1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
         1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
         1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
         1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,
-        1,1,1,0,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,0,0,1,1,1,1,0,0,1,1,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
-        1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,
+        1,0,0,0,0,0,2,2,2,2,2,2,0,0,2,2,2,2,3,3,3,0,0,3,3,3,1,0,0,1,1,1,
+        1,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,3,0,0,0,0,0,1,
+        1,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,1,
         1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+        1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,1,1,1,1,1,1,
         ];
 
     loop {
@@ -91,7 +93,7 @@ async fn main() {
             player.x += f32::cos(player_angle) * delta_time * PLAYER_MOVE_SPEED;
             player.y += f32::sin(player_angle) * delta_time * PLAYER_MOVE_SPEED;
 
-            if map[((player.y as u32) * map_size.x + (player.x as u32)) as usize] == 1 {
+            if map[((player.y as u32) * map_size.x + (player.x as u32)) as usize] > 0 {
                 player.x -= f32::cos(player_angle) * delta_time * PLAYER_MOVE_SPEED;
                 player.y -= f32::sin(player_angle) * delta_time * PLAYER_MOVE_SPEED;
             }
@@ -100,7 +102,7 @@ async fn main() {
             player.x -= f32::cos(player_angle) * delta_time * PLAYER_MOVE_SPEED;
             player.y -= f32::sin(player_angle) * delta_time * PLAYER_MOVE_SPEED;
 
-            if map[((player.y as u32) * map_size.x + (player.x as u32)) as usize] == 1 {
+            if map[((player.y as u32) * map_size.x + (player.x as u32)) as usize] > 0 {
                 player.x += f32::cos(player_angle) * delta_time * PLAYER_MOVE_SPEED;
                 player.y += f32::sin(player_angle) * delta_time * PLAYER_MOVE_SPEED;
             }
@@ -110,6 +112,7 @@ async fn main() {
         let starting_angle = player_angle - f32::to_radians(FOV / 2.);
         // go through the player's FOV to find all collisions in front of them
         for i in 0..=(TOTAL_NUM_OF_COLS as u32) {
+            let mut texture = Texture2D::empty();
             
             // gets the current angle using the size of each column and the total screen size
             let angle = starting_angle + f32::to_radians(ANGLE_INCREMENT * i as f32);
@@ -166,7 +169,14 @@ async fn main() {
 
                 // checks if the current cell in the map is a wall
                 if current_map_cell.x >= 0 && (current_map_cell.x as u32) < map_size.x && current_map_cell.y >= 0 && (current_map_cell.y as u32) < map_size.y {
-                    if map[(current_map_cell.y * map_size.x as i32 + current_map_cell.x) as usize] == 1 {
+                    let current_cell = map[(current_map_cell.y * map_size.x as i32 + current_map_cell.x) as usize];
+                    if current_cell > 0 {
+                        match current_cell {
+                            1 => texture = bricks,
+                            2 => texture = blackstone,
+                            3 => texture = planks,
+                            _ => ()
+                        }
                         tile_found = true;
                     }
                 }
@@ -184,25 +194,28 @@ async fn main() {
             let shade = 1. - distance/VIEW_DISTANCE;
             let color = Color::new(1. * shade, 1. * shade, 1. * shade, 1.);
 
-            let mut intersection = Vec2::default();
+            // draws a circle at the collision point if a collision occured
             if tile_found {
-                intersection = player + ray_dir * distance;
-            }
-
-            // draws the current raycast line on the minimap
-            draw_line(player.x * MINIMAP_CELL_SIZE as f32, player.y * MINIMAP_CELL_SIZE as f32,  end_point.x * MINIMAP_CELL_SIZE as f32, end_point.y * MINIMAP_CELL_SIZE as f32, 1., color);
-            
-            // draws a circle at the collision point on the minimap
-            if tile_found {
+                let intersection = player + ray_dir * distance;
                 draw_circle(intersection.x * MINIMAP_CELL_SIZE as f32, intersection.y * MINIMAP_CELL_SIZE as f32, 2., YELLOW);
             }
 
+
+            // draws the current raycast line on the minimap
+            draw_line(player.x * MINIMAP_CELL_SIZE as f32,
+                player.y * MINIMAP_CELL_SIZE as f32,
+                end_point.x * MINIMAP_CELL_SIZE as f32,
+                end_point.y * MINIMAP_CELL_SIZE as f32,
+                1.,
+                color);
+
+            // removes the fisheye effect
             distance = distance * f32::cos(player_angle - angle);
             
             let line_hight = (1. / distance) * plane_dist;
             let line_offset = (HEIGHT as f32 / 2.) - line_hight / 2.;
             draw_texture_ex(
-                bricks, 
+                texture, 
                 (i * WIDTH_3D) as f32, 
                 line_offset,
                 color, 
@@ -213,16 +226,22 @@ async fn main() {
                 });
         }
         
-        // draws the player and its direction
+        // draws the player and its direction on the minimap
         draw_circle(player.x * MINIMAP_CELL_SIZE as f32, player.y * MINIMAP_CELL_SIZE as f32, 2., RED);
+        
         let player_dir_ray = vec2(f32::cos(player_angle), f32::sin(player_angle)) + player;
-        draw_line(player.x * MINIMAP_CELL_SIZE as f32, player.y * MINIMAP_CELL_SIZE as f32, player_dir_ray.x * MINIMAP_CELL_SIZE as f32, player_dir_ray.y * MINIMAP_CELL_SIZE as f32, 2., RED);
+        draw_line(player.x * MINIMAP_CELL_SIZE as f32,
+            player.y * MINIMAP_CELL_SIZE as f32,
+            player_dir_ray.x * MINIMAP_CELL_SIZE as f32,
+            player_dir_ray.y * MINIMAP_CELL_SIZE as f32,
+            2.,
+            RED);
 
         // draw the minimap
         for y in 0..map_size.y {
             for x in 0..map_size.x {
                 let cell = map[(y * map_size.x + x) as usize];
-                if cell == 1 {
+                if cell > 0 {
                     draw_rectangle((x * MINIMAP_CELL_SIZE) as f32, (y * MINIMAP_CELL_SIZE) as f32, MINIMAP_CELL_SIZE as f32, MINIMAP_CELL_SIZE as f32, BLUE);
                 }
             }
