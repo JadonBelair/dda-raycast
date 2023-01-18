@@ -3,9 +3,9 @@ use macroquad::prelude::*;
 
 const FOV: f32 = 60.; // the cameras fov in degrees
 const WIDTH_3D: u32 = 1; // the width of each column when casting the rays and drawing the columns, the lower the value, the higher the resolution
-const BLOCK_SIZE: f32 = 64.; // the size of the textures used for the walls
 const VIEW_DISTANCE: f32 = 30.; // how many grid spaces the camera can see up to
 const MINIMAP_CELL_SIZE: f32 = 5.; // how big each grid space will be in the minimap in pixels
+pub const BLOCK_SIZE: f32 = 64.; // the size of the textures used for the walls
 
 pub struct RayCastEngine {
     pub map: Vec<u32>,
@@ -124,11 +124,25 @@ impl RayCastEngine {
 
             let end_point = ray_dir * distance + self.camera;
 
-            // uses how far into a cell the ray collided to decide where to sample the texture from
+            // uses how far into a cell the ray collided
+            // to decide where to sample the texture from,
+            // also flips the textures on certain walls so
+            // directional textures work on any surface
             let sub_image = if col_y {
-                Rect::new( (end_point.y % end_point.y.floor() * BLOCK_SIZE).floor(), 0., 1., BLOCK_SIZE)
+                let end_point = if step.x == -1 {
+                    (BLOCK_SIZE - 1.) - (end_point.y % end_point.y.floor() * BLOCK_SIZE).floor()
+                } else {
+                    (end_point.y % end_point.y.floor() * BLOCK_SIZE).floor()
+                };
+
+                Rect::new( end_point, 0., 1., BLOCK_SIZE)
             } else {
-                Rect::new( (end_point.x % end_point.x.floor() * BLOCK_SIZE).floor(), 0., 1., BLOCK_SIZE)
+                let end_point = if step.y == 1 {
+                    (BLOCK_SIZE - 1.) - (end_point.x % end_point.x.floor() * BLOCK_SIZE).floor()
+                } else {
+                    (end_point.x % end_point.x.floor() * BLOCK_SIZE).floor()
+                };
+                Rect::new( end_point, 0., 1., BLOCK_SIZE)
             };
 
             let shade = 1. - distance/VIEW_DISTANCE;

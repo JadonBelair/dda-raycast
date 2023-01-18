@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, collections::HashMap, fs, io::Read};
 use macroquad::prelude::*;
-use raycast_dda::RayCastEngine;
+use raycast_dda::{RayCastEngine, BLOCK_SIZE};
 use serde_json::Value;
 
 const WIDTH: u32 = 1280; // window width
@@ -31,20 +31,17 @@ async fn main() {
     let bricks = load_texture("bricks.png").await.unwrap();
     let blackstone = load_texture("polished_blackstone_bricks.png").await.unwrap();
     let planks = load_texture("oak_planks.png").await.unwrap();
-    
     bricks.set_filter(FilterMode::Nearest);
     blackstone.set_filter(FilterMode::Nearest);
     planks.set_filter(FilterMode::Nearest);
 
+    let block_size = BLOCK_SIZE as u32;
     let textures: HashMap<u32, (Texture2D, Color)> = HashMap::from([
-        (1, (bricks, get_average_texture_color(&bricks, 64, 64))),
-        (2, (blackstone, get_average_texture_color(&blackstone, 64, 64))),
-        (3, (planks, get_average_texture_color(&planks, 64, 64)))
+        (1, (bricks, get_average_texture_color(&bricks, block_size, block_size))),
+        (2, (blackstone, get_average_texture_color(&blackstone, block_size, block_size))),
+        (3, (planks, get_average_texture_color(&planks, block_size, block_size)))
     ]);
     
-    // precomputes the distance of the render plane from the player
-    // let plane_dist: f32 = ((WIDTH as f32) / 2.) / f32::tan(f32::to_radians(FOV / 2.));
-
     // initial player position and rotation
     let player = vec2(level[0]["entityInstances"][0]["__grid"][0].as_f64().unwrap() as f32 + 0.5, level[0]["entityInstances"][0]["__grid"][1].as_f64().unwrap() as f32 + 0.5);
     let player_angle = 0.;
