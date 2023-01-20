@@ -2,7 +2,7 @@ use std::{collections::HashMap, f32::consts::PI};
 use macroquad::prelude::*;
 
 const FOV: f32 = 60.; // the cameras fov in degrees
-const WIDTH_3D: u32 = 1; // the width of each column when casting the rays and drawing the columns, the lower the value, the higher the resolution
+const WIDTH_3D: f32 = 1.; // the width of each column when casting the rays and drawing the columns, the lower the value, the higher the resolution
 const VIEW_DISTANCE: f32 = 30.; // how many grid spaces the camera can see up to
 const MINIMAP_CELL_SIZE: f32 = 5.; // how big each grid space will be in the minimap in pixels
 pub const BLOCK_SIZE: f32 = 64.; // the size of the textures used for the walls
@@ -20,10 +20,10 @@ pub struct RayCastEngine {
 impl RayCastEngine {
     pub fn new(map: Vec<u32>, map_size: UVec2, camera: Vec2, camera_angle: f32, textures: HashMap<u32, (Texture2D, Color)>) -> Self {
         // precomputed distance of the render plane from the camera
-        let plane_dist: f32 = ((screen_width() as f32) / 2.) / f32::tan(f32::to_radians(FOV / 2.));
+        let plane_dist: f32 = (screen_width() / 2.) / (FOV / 2.).to_radians().tan();
 
         // the total number of rays/columns to draw
-        let total_num_of_cols = (screen_width() as f32) / (WIDTH_3D as f32);
+        let total_num_of_cols = screen_width() / WIDTH_3D as f32;
 
         Self {
             map,
@@ -49,13 +49,8 @@ impl RayCastEngine {
 
             // gets the current angle using the size of each column, the total screen size, and trigonometry
             let dist_from_middle = ((self.total_num_of_cols / 2.) - i as f32)*WIDTH_3D as f32;
-            let angle_dist_from_plane = f32::sqrt(dist_from_middle.powi(2) + self.plane_dist.powi(2));
-            let mut angle = f32::acos((angle_dist_from_plane.powi(2) + self.plane_dist.powi(2) - dist_from_middle.powi(2)) / (2. * angle_dist_from_plane * self.plane_dist));
-
-            // flips angle on one side so image isn't mirrored down the middle
-            if i > (self.total_num_of_cols / 2.) as u32 {
-                angle = -angle;
-            }
+            let angle_dist_from_plane = (dist_from_middle.powi(2) + self.plane_dist.powi(2)).sqrt();
+            let mut angle = (dist_from_middle/angle_dist_from_plane).asin();
 
             // offsets the angle by the angle of the camera
             angle = correct_angle(self.camera_angle - angle);
@@ -171,7 +166,7 @@ impl RayCastEngine {
             let line_offset = (screen_height() as f32 / 2.) - line_hight / 2.;
             draw_texture_ex(
                 texture, 
-                (i * WIDTH_3D) as f32, 
+                i as f32 * WIDTH_3D, 
                 line_offset,
                 color, 
                 DrawTextureParams {
