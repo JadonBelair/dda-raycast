@@ -69,21 +69,41 @@ async fn main() {
         // moves the player forward or backwards
         // with super basic collision detection
         if is_key_down(KeyCode::W) {
-            engine.camera.x += f32::cos(engine.camera_angle) * delta_time * PLAYER_MOVE_SPEED;
-            engine.camera.y += f32::sin(engine.camera_angle) * delta_time * PLAYER_MOVE_SPEED;
+            let x_move = engine.camera_angle.cos() * delta_time * PLAYER_MOVE_SPEED;
+            let y_move = engine.camera_angle.sin() * delta_time * PLAYER_MOVE_SPEED;
 
-            if engine.map[((engine.camera.y as u32) * engine.map_size.x + (engine.camera.x as u32)) as usize] > 0 {
-                engine.camera.x -= f32::cos(engine.camera_angle) * delta_time * PLAYER_MOVE_SPEED;
-                engine.camera.y -= f32::sin(engine.camera_angle) * delta_time * PLAYER_MOVE_SPEED;
+            let target_x = engine.camera.x + x_move;
+            let target_y = engine.camera.y + y_move;
+
+            if engine.map[((engine.camera.y as u32) * engine.map_size.x + (target_x as u32)) as usize] == 0 {
+                engine.camera.x = target_x;
+            } else {
+                engine.camera.x = target_x.floor() + if engine.camera.x < target_x { -0.01 } else { 1.01 };
+            }
+            
+            if engine.map[((target_y as u32) * engine.map_size.x + (engine.camera.x as u32)) as usize] == 0 {
+                engine.camera.y = target_y;
+            } else {
+                engine.camera.y = target_y.floor() + if engine.camera.y < target_y { -0.01 } else { 1.01 };
             }
         }
         if is_key_down(KeyCode::S) {
-            engine.camera.x -= f32::cos(engine.camera_angle) * delta_time * PLAYER_MOVE_SPEED;
-            engine.camera.y -= f32::sin(engine.camera_angle) * delta_time * PLAYER_MOVE_SPEED;
+            let x_move = engine.camera_angle.cos() * delta_time * PLAYER_MOVE_SPEED;
+            let y_move = engine.camera_angle.sin() * delta_time * PLAYER_MOVE_SPEED;
 
-            if engine.map[((engine.camera.y as u32) * engine.map_size.x + (engine.camera.x as u32)) as usize] > 0 {
-                engine.camera.x += f32::cos(engine.camera_angle) * delta_time * PLAYER_MOVE_SPEED;
-                engine.camera.y += f32::sin(engine.camera_angle) * delta_time * PLAYER_MOVE_SPEED;
+            let target_x = engine.camera.x - x_move;
+            let target_y = engine.camera.y - y_move;
+
+            if engine.map[((engine.camera.y as u32) * engine.map_size.x + (target_x as u32)) as usize] == 0 {
+                engine.camera.x = target_x;
+            } else {
+                engine.camera.x = target_x.floor() + if engine.camera.x < target_x { -0.01 } else { 1.01 };
+            }
+            
+            if engine.map[((target_y as u32) * engine.map_size.x + (engine.camera.x as u32)) as usize] == 0 {
+                engine.camera.y = target_y;
+            } else {
+                engine.camera.y = target_y.floor() + if engine.camera.y < target_y { -0.01 } else { 1.01 };
             }
         }
 
