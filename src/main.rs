@@ -3,8 +3,8 @@ use raycast_dda::RayCastEngine;
 use serde_json::Value;
 use std::{collections::HashMap, f32::consts::PI, fs, io::Read};
 
-const WIDTH: i32 = 1920; // window width
-const HEIGHT: i32 = 1080; // window height
+const WIDTH: i32 = 1280; // window width
+const HEIGHT: i32 = 720; // window height
 const WIDTH_3D: f32 = 1.; // the width of each column when casting the rays and drawing the columns, the lower the value, the higher the resolution
 const VIEW_DISTANCE: f32 = 30.; // how many grid spaces the camera can see up to
 const BLOCK_SIZE: f32 = 64.; // the size of the textures used for the walls
