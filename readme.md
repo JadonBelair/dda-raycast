@@ -15,6 +15,8 @@ A/D: look left/right
 ## TODO
 - [X] add easier way to make maps
 - [ ] have nicer LDtk integration
-- [ ] add shaded floor/ceiling
+- [X] add shaded floor/ceiling
+- [ ] allow any texture for use in floor
+- [ ] have better way of calculating magic number for floor
 - [X] add better collision system
 - [X] make engine more modular / less dependant on game logic.

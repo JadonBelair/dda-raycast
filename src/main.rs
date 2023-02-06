@@ -37,6 +37,7 @@ async fn main() {
     let bricks = load_texture("bricks.png").await.unwrap();
     let blackstone = load_texture("polished_blackstone_bricks.png").await.unwrap();
     let planks = load_texture("oak_planks.png").await.unwrap();
+    let plank_image = planks.get_texture_data();
 
     bricks.set_filter(FilterMode::Nearest);
     blackstone.set_filter(FilterMode::Nearest);
@@ -79,7 +80,17 @@ async fn main() {
 
     // the texture to draw each column
     let mut texture;
+
+    let mut floor_image = Image::gen_image_color(WIDTH as u16, HEIGHT as u16, Color::new(0., 0., 0., 0.));
+    let floor_tex = Texture2D::from_image(&floor_image);
+
+    // magic number used for floor rendering
+    // need to figure out equation for this instead
+    // since it only works for 1280x720 at the moment
+    let mut ar = 275.;
+
     loop {
+        floor_image = Image::gen_image_color(WIDTH as u16, HEIGHT as u16, Color::new(0., 0., 0., 0.));
         clear_background(BLACK);
         let delta_time = get_frame_time();
 
@@ -89,6 +100,13 @@ async fn main() {
         }
         if is_key_down(KeyCode::D) {
             player_angle += PLAYER_TURN_SPEED * delta_time;
+        }
+
+        if is_key_down(KeyCode::Q) {
+            ar -= 30. * delta_time;
+        }
+        if is_key_down(KeyCode::E) {
+            ar += 30. * delta_time;
         }
 
         // limits the viewing angle to be between 0-2PI
@@ -229,7 +247,31 @@ async fn main() {
                     ..Default::default()
                 },
             );
+
+            // draws the floor for the current column
+            for y in (line_offset as u32 + line_hight as u32)..(screen_height() as u32 - 1) {
+                // ar = ((0.5 * screen_width()) / (5. / map_size.0 as f32 * screen_height()) * (0.5 * map_size.0 as f32 * BLOCK_SIZE)) / 4.;
+                let dy = (y - (HEIGHT as u32 / 2)) as f32;
+                let mut tx = ((player.0 * BLOCK_SIZE) / 2. + angle.cos() * ar * 64. / dy / rel_angle.cos()) * 2.;
+                let mut ty = ((player.1 * BLOCK_SIZE) / 2. + angle.sin() * ar * 64. / dy / rel_angle.cos()) * 2.;
+
+                if tx < 0. {
+                    tx = 64. + tx;
+                }
+                if ty < 0. {
+                    ty = 64. + ty;
+                }
+                let col = plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64);
+
+                floor_image.set_pixel(i, y, col);
+            }
         }
+
+        // updates the texture with all the floor pixels
+        floor_tex.update(&floor_image);
+
+        // draws the generated floor
+        draw_texture(floor_tex, 0., 0., WHITE);
 
         draw_text(
             format!("FPS: {}", get_fps()).as_str(),
