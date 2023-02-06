@@ -84,10 +84,11 @@ async fn main() {
     let mut floor_image = Image::gen_image_color(WIDTH as u16, HEIGHT as u16, Color::new(0., 0., 0., 0.));
     let floor_tex = Texture2D::from_image(&floor_image);
 
-    // magic number used for floor rendering
-    // need to figure out equation for this instead
-    // since it only works for 1280x720 at the moment
-    let mut ar = 275.;
+    // used in some way for rendering the floor
+    // im not super clear on what this does and the formula
+    // ive come up with doesnt seem to be perfect, but
+    // its close enough for the most part so ill leave it for now
+    let ar = (plane_dist / 4.).floor();
 
     loop {
         floor_image = Image::gen_image_color(WIDTH as u16, HEIGHT as u16, Color::new(0., 0., 0., 0.));
@@ -100,13 +101,6 @@ async fn main() {
         }
         if is_key_down(KeyCode::D) {
             player_angle += PLAYER_TURN_SPEED * delta_time;
-        }
-
-        if is_key_down(KeyCode::Q) {
-            ar -= 30. * delta_time;
-        }
-        if is_key_down(KeyCode::E) {
-            ar += 30. * delta_time;
         }
 
         // limits the viewing angle to be between 0-2PI
@@ -167,7 +161,7 @@ async fn main() {
             DARKGRAY,
         );
 
-        for i in 0..=(total_num_of_cols as u32) {
+        for i in 0..(total_num_of_cols as u32) {
             texture = Texture2D::empty();
 
             // gets the current angle using the size of each column, the total screen size, and trigonometry
@@ -249,8 +243,7 @@ async fn main() {
             );
 
             // draws the floor for the current column
-            for y in (line_offset as u32 + line_hight as u32)..(screen_height() as u32 - 1) {
-                // ar = ((0.5 * screen_width()) / (5. / map_size.0 as f32 * screen_height()) * (0.5 * map_size.0 as f32 * BLOCK_SIZE)) / 4.;
+            for y in (line_offset as u32 + line_hight as u32)..(screen_height() as u32) {
                 let dy = (y - (HEIGHT as u32 / 2)) as f32;
                 let mut tx = ((player.0 * BLOCK_SIZE) / 2. + angle.cos() * ar * 64. / dy / rel_angle.cos()) * 2.;
                 let mut ty = ((player.1 * BLOCK_SIZE) / 2. + angle.sin() * ar * 64. / dy / rel_angle.cos()) * 2.;
@@ -261,9 +254,18 @@ async fn main() {
                 if ty < 0. {
                     ty = 64. + ty;
                 }
+
                 let col = plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64);
 
+                // adds shading to the floor/ceiling depending on how close it is to the center of the screen
+                let shade = ((y as f32 - screen_height() / 2.) / (screen_height() / 2.) + 0.3).clamp(0., 1.);
+                let col = Color::new(col.r * shade, col.g * shade, col.b * shade, 1.);
+
+                // draws the calculated color to the floor
                 floor_image.set_pixel(i, y, col);
+
+                // also draws same color to the ceiling
+                floor_image.set_pixel(i, screen_height() as u32 - y, col);
             }
         }
 
