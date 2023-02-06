@@ -17,7 +17,7 @@ pub struct RayData {
     pub ray_direction: (f32, f32),
 
     /// boolean for if the ray collided with a vertical wall
-    pub collided_horizontal: bool,
+    pub collided_vertical: bool,
 }
 
 /// ray cast engine to hold a map and allow the user to cast rays from any point in the map
@@ -105,8 +105,7 @@ impl RayCastEngine {
                 && current_map_cell.1 >= 0
                 && current_map_cell.1 < self.map_size.1 as i32
             {
-                let current_cell = self.map
-                    [(current_map_cell.1 * self.map_size.0 as i32 + current_map_cell.0) as usize];
+                let current_cell = self.map[(current_map_cell.1 * self.map_size.0 as i32 + current_map_cell.0) as usize];
                 if current_cell > 0 {
                     hit_val = Some(current_cell);
                     tile_found = true;
@@ -123,7 +122,7 @@ impl RayCastEngine {
             ray_angle: angle,
             ray_position: pos,
             ray_direction: ray_dir,
-            collided_horizontal,
+            collided_vertical: collided_horizontal,
         }
     }
 }

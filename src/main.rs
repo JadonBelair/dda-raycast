@@ -183,14 +183,14 @@ async fn main() {
             // directional textures work on any surface
 
             // gets the x or y coord depending on if the collision was on the y-axis or not
-            let coord = if ray_data.collided_horizontal {
+            let coord = if ray_data.collided_vertical {
                 end_point.1
             } else {
                 end_point.0
             };
 
             // checks if the texture will need to be flipped depending on what direction the ray is facing
-            let flip_check = if ray_data.collided_horizontal {
+            let flip_check = if ray_data.collided_vertical {
                 ray_data.ray_direction.0 < 0.
             } else {
                 ray_data.ray_direction.1 > 0.
