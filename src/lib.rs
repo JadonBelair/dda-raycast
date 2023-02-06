@@ -1,211 +1,129 @@
-use std::{collections::HashMap, f32::consts::PI};
-use macroquad::prelude::*;
+/// holds information useful when looking at a casted ray
+#[derive(Default)]
+pub struct RayData {
+    /// the length of the ray from the starting position to when it collided
+    pub ray_length: f32,
 
-const FOV: f32 = 60.; // the cameras fov in degrees
-const WIDTH_3D: f32 = 1.; // the width of each column when casting the rays and drawing the columns, the lower the value, the higher the resolution
-const VIEW_DISTANCE: f32 = 30.; // how many grid spaces the camera can see up to
-const MINIMAP_CELL_SIZE: f32 = 5.; // how big each grid space will be in the minimap in pixels
-pub const BLOCK_SIZE: f32 = 64.; // the size of the textures used for the walls
+    /// the value in the map cell the ray collided with, or None if the ray did not collide
+    pub hit_val: Option<u32>,
 
+    /// the angle of the ray
+    pub ray_angle: f32,
+
+    /// the starting position of the ray
+    pub ray_position: (f32, f32),
+
+    /// a unit vector for the direction the ray traveled
+    pub ray_direction: (f32, f32),
+
+    /// boolean for if the ray collided with a vertical wall
+    pub collided_horizontal: bool,
+}
+
+/// ray cast engine to hold a map and allow the user to cast rays from any point in the map
 pub struct RayCastEngine {
     pub map: Vec<u32>,
-    pub map_size: UVec2,
-    pub camera: Vec2,
-    pub camera_angle: f32,
-    pub textures: HashMap<u32, (Texture2D, Color)>,
-    pub plane_dist: f32,
-    total_num_of_cols: f32,
+    pub map_size: (usize, usize),
 }
 
 impl RayCastEngine {
-    pub fn new(map: Vec<u32>, map_size: UVec2, camera: Vec2, camera_angle: f32, textures: HashMap<u32, (Texture2D, Color)>) -> Self {
-        // precomputed distance of the render plane from the camera
-        let plane_dist: f32 = (screen_width() / 2.) / (FOV / 2.).to_radians().tan();
-
-        // the total number of rays/columns to draw
-        let total_num_of_cols = screen_width() / WIDTH_3D as f32;
-
-        Self {
-            map,
-            map_size,
-            camera,
-            camera_angle,
-            textures,
-            plane_dist,
-            total_num_of_cols,
-        }
+    /// creates a new engine with the provided map.
+    /// maps are 1D vectors so user must provide the size
+    /// of the map for use during the ray cast process
+    pub fn new(map: Vec<u32>, map_size: (usize, usize)) -> Self {
+        Self { map, map_size }
     }
 
-    pub fn draw_screen(&self) {
+    /// casts a single ray from the given position with the
+    /// given angle and returns information about the casted ray
+    pub fn cast_ray(&self, pos: (f32, f32), angle: f32, max_distance: f32) -> RayData {
+        // option to hold the the value in the map that the ray collided with
+        let mut hit_val: Option<u32> = None;
 
-        draw_rectangle(0., screen_height() / 2., screen_width(), screen_height(), DARKGRAY);
-        draw_rectangle(0., 0., screen_width(), screen_height() / 2., SKYBLUE);
-        
-        let mut texture;
+        // makes a normalized vector with the provided angle
+        let ray_dir = (f32::cos(angle), f32::sin(angle));
 
-        // go through the camera's FOV to find all collisions in front of them
-        for i in 0..=(self.total_num_of_cols as u32) {
-            texture = Texture2D::empty();
+        // calculate each step size for the ray for each unit cell in the map
+        let ray_unit_step_size = (
+            f32::sqrt(1. + (ray_dir.1 / ray_dir.0) * (ray_dir.1 / ray_dir.0)),
+            f32::sqrt(1. + (ray_dir.0 / ray_dir.1) * (ray_dir.0 / ray_dir.1)),
+        );
 
-            // gets the current angle using the size of each column, the total screen size, and trigonometry
-            let dist_from_middle = ((self.total_num_of_cols / 2.) - i as f32)*WIDTH_3D as f32;
-            let angle_dist_from_plane = (dist_from_middle.powi(2) + self.plane_dist.powi(2)).sqrt();
-            let mut angle = (dist_from_middle/angle_dist_from_plane).asin();
+        // initialize information about the ray like its starting position and length
+        let mut current_map_cell = (pos.0 as i32, pos.1 as i32);
+        #[allow(non_snake_case)]
+        let mut ray_length_1D: (f32, f32) = (0., 0.);
 
-            // offsets the angle by the angle of the camera
-            angle = correct_angle(self.camera_angle - angle);
+        // tuple for storing the grid based x/y movement of the ray
+        let mut step: (i32, i32) = (0, 0);
 
-            // makes a normalized vector with the current angle
-            let ray_dir = vec2(f32::cos(angle), f32::sin(angle)).normalize_or_zero();
-
-            let ray_unit_step_size = vec2(
-                f32::sqrt(1. + (ray_dir.y / ray_dir.x) * (ray_dir.y / ray_dir.x)),
-                f32::sqrt(1. + (ray_dir.x / ray_dir.y) * (ray_dir.x / ray_dir.y))
-            );
-
-            let mut current_map_cell = self.camera.as_ivec2();
-            #[allow(non_snake_case)]
-            let mut ray_length_1D = Vec2::default();
-
-            let mut step: IVec2 = IVec2::default();
-
-            if ray_dir.x < 0. {
-                step.x = -1;
-                ray_length_1D.x = (self.camera.x - current_map_cell.x as f32) * ray_unit_step_size.x;
-            } else {
-                step.x = 1;
-                ray_length_1D.x = ((current_map_cell.x + 1) as f32 - self.camera.x) * ray_unit_step_size.x;
-            }
-            
-            if ray_dir.y < 0. {
-                step.y = -1;
-                ray_length_1D.y = (self.camera.y - current_map_cell.y as f32) * ray_unit_step_size.y;
-            } else {
-                step.y = 1;
-                ray_length_1D.y = ((current_map_cell.y + 1) as f32 - self.camera.y) * ray_unit_step_size.y;
-            }
-
-            let mut tile_found = false;
-            let max_distance = VIEW_DISTANCE;
-            let mut distance = 0_f32;
-            let mut col_y = false;
-            while !tile_found && distance < max_distance {
-                // walk 1 unit along the ray
-                // and check if the x length
-                // or y length are longer
-                if ray_length_1D.x < ray_length_1D.y {
-                    current_map_cell.x += step.x;
-                    distance  = ray_length_1D.x;
-                    ray_length_1D.x += ray_unit_step_size.x;
-                    col_y = true;
-                } else {
-                    current_map_cell.y += step.y;
-                    distance  = ray_length_1D.y;
-                    ray_length_1D.y += ray_unit_step_size.y;
-                    col_y = false;
-                }
-
-                // checks if the current cell in the map is a wall
-                if current_map_cell.x >= 0 && current_map_cell.x < self.map_size.x as i32 && current_map_cell.y >= 0 && current_map_cell.y < self.map_size.y as i32 {
-                    let current_cell = self.map[(current_map_cell.y * self.map_size.x as i32 + current_map_cell.x) as usize];
-                    if current_cell > 0 {
-                        if let Some(t) = self.textures.get(&current_cell) {
-                            texture = t.0;
-                        }
-                        tile_found = true;
-                    }
-                }
-            }
-
-            let end_point = ray_dir * distance + self.camera;
-
-            // uses how far into a cell the ray collided
-            // to decide where to sample the texture from,
-            // also flips the textures on certain walls so
-            // directional textures work on any surface
-            let sub_image = if col_y {
-                let end_point = if step.x == -1 {
-                    (BLOCK_SIZE - 1.) - (end_point.y % end_point.y.floor() * BLOCK_SIZE).floor()
-                } else {
-                    (end_point.y % end_point.y.floor() * BLOCK_SIZE).floor()
-                };
-
-                Rect::new( end_point, 0., 1., BLOCK_SIZE)
-            } else {
-                let end_point = if step.y == 1 {
-                    (BLOCK_SIZE - 1.) - (end_point.x % end_point.x.floor() * BLOCK_SIZE).floor()
-                } else {
-                    (end_point.x % end_point.x.floor() * BLOCK_SIZE).floor()
-                };
-                Rect::new( end_point, 0., 1., BLOCK_SIZE)
-            };
-
-            let shade = 1. - distance/VIEW_DISTANCE;
-            let color = Color::new(1. * shade, 1. * shade, 1. * shade, 1.);
-
-            // draws a circle at the collision point if a collision occured
-            if tile_found {
-                let intersection = self.camera + ray_dir * distance;
-                draw_circle(intersection.x * MINIMAP_CELL_SIZE as f32, intersection.y * MINIMAP_CELL_SIZE as f32, 2., YELLOW);
-            }
-
-
-            // draws the current raycast line on the minimap
-            draw_line(self.camera.x * MINIMAP_CELL_SIZE as f32,
-                self.camera.y * MINIMAP_CELL_SIZE as f32,
-                end_point.x * MINIMAP_CELL_SIZE as f32,
-                end_point.y * MINIMAP_CELL_SIZE as f32,
-                1.,
-                color);
-
-            // removes the fisheye effect
-            let rel_angle = correct_angle(self.camera_angle - angle);
-            distance =  distance * f32::cos(rel_angle);
-            
-            let line_hight = (1. / distance) * self.plane_dist;
-            let line_offset = (screen_height() as f32 / 2.) - line_hight / 2.;
-            draw_texture_ex(
-                texture, 
-                i as f32 * WIDTH_3D, 
-                line_offset,
-                color, 
-                DrawTextureParams {
-                    dest_size: Some(vec2(WIDTH_3D as f32, line_hight)),
-                    source: Some(sub_image),
-                    ..Default::default()
-                });
+        // does the first step manually since the position
+        // can be in a cell instead of on its edges
+        if ray_dir.0 < 0. {
+            step.0 = -1;
+            ray_length_1D.0 = (pos.0 - current_map_cell.0 as f32) * ray_unit_step_size.0;
+        } else {
+            step.0 = 1;
+            ray_length_1D.0 = ((current_map_cell.0 + 1) as f32 - pos.0) * ray_unit_step_size.0;
         }
-        
-        // draws the camera and its direction on the minimap
-        draw_circle(self.camera.x * MINIMAP_CELL_SIZE as f32, self.camera.y * MINIMAP_CELL_SIZE as f32, 2., RED);
-        
-        let camera_dir_ray = vec2(f32::cos(self.camera_angle), f32::sin(self.camera_angle)) + self.camera;
-        draw_line(self.camera.x * MINIMAP_CELL_SIZE as f32,
-            self.camera.y * MINIMAP_CELL_SIZE as f32,
-            camera_dir_ray.x * MINIMAP_CELL_SIZE as f32,
-            camera_dir_ray.y * MINIMAP_CELL_SIZE as f32,
-            2.,
-            RED);
 
-        // draw the minimap
-        for y in 0..self.map_size.y {
-            for x in 0..self.map_size.x {
-                let cell = self.map[(y * self.map_size.x + x) as usize];
-                if cell > 0 {
-                    let color = if let Some(c) = self.textures.get(&cell) {
-                        c.1
-                    } else {
-                        BLUE
-                    };
-                    draw_rectangle(x as f32 * MINIMAP_CELL_SIZE, y as f32 * MINIMAP_CELL_SIZE as f32, MINIMAP_CELL_SIZE, MINIMAP_CELL_SIZE, color);
-                }
+        if ray_dir.1 < 0. {
+            step.1 = -1;
+            ray_length_1D.1 = (pos.1 - current_map_cell.1 as f32) * ray_unit_step_size.1;
+        } else {
+            step.1 = 1;
+            ray_length_1D.1 = ((current_map_cell.1 + 1) as f32 - pos.1) * ray_unit_step_size.1;
+        }
+
+        // initialize info needed for the casting process
+        let mut tile_found = false;
+        let mut distance = 0_f32;
+        let mut collided_horizontal = false;
+        while !tile_found && distance < max_distance {
+            // walk 1 unit along the ray
+            // and check if the x length
+            // or y length are shorter
+            if ray_length_1D.0 < ray_length_1D.1 {
+                // if the x length is shorter, takes 1
+                // step in the x direction on the ray
+                current_map_cell.0 += step.0;
+                distance = ray_length_1D.0;
+                ray_length_1D.0 += ray_unit_step_size.0;
+                collided_horizontal = true;
+            } else {
+                // if the x length is shorter, takes 1
+                // step in the y direction on the ray
+                current_map_cell.1 += step.1;
+                distance = ray_length_1D.1;
+                ray_length_1D.1 += ray_unit_step_size.1;
+                collided_horizontal = false;
             }
+
+            // checks if the current cell in the map is a wall
+            if current_map_cell.0 >= 0
+                && current_map_cell.0 < self.map_size.0 as i32
+                && current_map_cell.1 >= 0
+                && current_map_cell.1 < self.map_size.1 as i32
+            {
+                let current_cell = self.map
+                    [(current_map_cell.1 * self.map_size.0 as i32 + current_map_cell.0) as usize];
+                if current_cell > 0 {
+                    hit_val = Some(current_cell);
+                    tile_found = true;
+                }
+            } else {
+                // we are outside the map, break early
+                break;
+            }
+        }
+
+        RayData {
+            ray_length: distance,
+            hit_val,
+            ray_angle: angle,
+            ray_position: pos,
+            ray_direction: ray_dir,
+            collided_horizontal,
         }
     }
-}
-
-pub fn correct_angle(angle: f32) -> f32 {
-    if angle > 2. * PI { angle - (2. * PI) }
-    else if angle < 0. { angle + (2. * PI) }
-    else { angle }
 }
