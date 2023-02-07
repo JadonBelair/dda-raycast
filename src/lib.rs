@@ -1,3 +1,8 @@
+pub trait Map {
+    fn get_cell(&self, x: usize, y: usize) -> Option<u32>;
+    fn get_size(&self) -> (usize, usize);
+}
+
 /// holds information useful when looking at a casted ray
 #[derive(Default)]
 pub struct RayData {
@@ -21,16 +26,16 @@ pub struct RayData {
 }
 
 /// ray cast engine to hold a map and allow the user to cast rays from any point in the map
-pub struct RayCastEngine {
-    pub map: Vec<u32>,
+pub struct RayCastEngine<T: Map> {
+    pub map: T,
     pub map_size: (usize, usize),
 }
 
-impl RayCastEngine {
+impl<T: Map> RayCastEngine<T> {
     /// creates a new engine with the provided map.
     /// maps are 1D vectors so user must provide the size
     /// of the map for use during the ray cast process
-    pub fn new(map: Vec<u32>, map_size: (usize, usize)) -> Self {
+    pub fn new(map: T, map_size: (usize, usize)) -> Self {
         Self { map, map_size }
     }
 
@@ -105,7 +110,7 @@ impl RayCastEngine {
                 && current_map_cell.1 >= 0
                 && current_map_cell.1 < self.map_size.1 as i32
             {
-                let current_cell = self.map[(current_map_cell.1 * self.map_size.0 as i32 + current_map_cell.0) as usize];
+                let current_cell = self.map.get_cell(current_map_cell.0 as usize, current_map_cell.1 as usize).unwrap();//[(current_map_cell.1 * self.map_size.0 as i32 + current_map_cell.0) as usize];
                 if current_cell > 0 {
                     hit_val = Some(current_cell);
                     tile_found = true;

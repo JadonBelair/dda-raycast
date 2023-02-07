@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
-use raycast_dda::RayCastEngine;
-use serde_json::Value;
-use std::{collections::HashMap, f32::consts::PI, fs, io::Read};
+use raycast_dda::{RayCastEngine, Map};
+// use serde_json::Value;
+use std::{collections::HashMap, f32::consts::PI};//, fs, io::Read};
 
 const WIDTH: i32 = 1280; // window width
 const HEIGHT: i32 = 720; // window height
@@ -11,6 +11,36 @@ const BLOCK_SIZE: f32 = 64.; // the size of the textures used for the walls
 const PLAYER_MOVE_SPEED: f32 = 8.; // the players move speed
 const PLAYER_TURN_SPEED: f32 = 2.; // the player turn speed
 const FOV: f32 = 60.; // the cameras fov in degrees
+
+struct World {
+    map: Vec<u32>,
+    floor: Vec<u32>,
+    ceil: Vec<u32>,
+    map_size: (usize, usize),
+}
+
+impl World {
+    pub fn get_floor(&self, x: usize, y: usize) -> Option<u32> {
+        let index = y * self.map_size.0 + x;
+        self.floor.get(index).copied()
+    }
+    
+    pub fn get_ceil(&self, x: usize, y: usize) -> Option<u32> {
+        let index = y * self.map_size.0 + x;
+        self.ceil.get(index).copied()
+    }
+}
+
+impl Map for World {
+    fn get_cell(&self, x: usize, y: usize) -> Option<u32> {
+        let index = y * self.map_size.0 + x;
+        self.map.get(index).copied()
+    }
+
+    fn get_size(&self) -> (usize, usize) {
+        self.map_size
+    }
+}
 
 fn window_conf() -> Conf {
     Conf {
@@ -25,17 +55,25 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut level_data = String::new();
-    fs::File::open("test_level.ldtk")
-        .unwrap()
-        .read_to_string(&mut level_data)
-        .unwrap();
+    // let mut level_data = String::new();
+    // fs::File::open("test_level.ldtk")
+    //     .unwrap()
+    //     .read_to_string(&mut level_data)
+    //     .unwrap();
 
-    let level: Value = serde_json::from_str(level_data.as_str()).unwrap();
-    let level: &Value = &level["levels"][0]["layerInstances"];
+    // let level: Value = serde_json::from_str(level_data.as_str()).unwrap();
+    // let level: &Value = &level["levels"][0]["layerInstances"];
+
+    let sky = load_texture("sky.png").await.unwrap();
+    let sky_width = screen_width();
+    let sky_height = sky_width / 2.;
 
     let bricks = load_texture("bricks.png").await.unwrap();
+    let bricks_image = bricks.get_texture_data();
+
     let blackstone = load_texture("polished_blackstone_bricks.png").await.unwrap();
+    let blackstone_image = blackstone.get_texture_data();
+
     let planks = load_texture("oak_planks.png").await.unwrap();
     let plank_image = planks.get_texture_data();
 
@@ -51,24 +89,102 @@ async fn main() {
 
     // initial player position and rotation
     let mut player = (
-        level[0]["entityInstances"][0]["__grid"][0].as_f64().unwrap() as f32 + 0.5,
-        level[0]["entityInstances"][0]["__grid"][1].as_f64().unwrap() as f32 + 0.5,
+        1.5,//level[0]["entityInstances"][0]["__grid"][0].as_f64().unwrap() as f32 + 0.5,
+        1.5//level[0]["entityInstances"][0]["__grid"][1].as_f64().unwrap() as f32 + 0.5,
     );
     let mut player_angle = 0.;
 
     // the map that the can player move through and look around in
-    let map: Vec<u32> = level[1]["intGridCsv"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|v| v.as_u64().unwrap() as u32)
-        .collect();
+    let map: Vec<u32> = vec!(
+        2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,
+        2,2,2,2,2,0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+        2,0,0,0,0,0,2,0,0,0,0,0,2,0,0,0,0,0,0,0,2,
+        2,0,2,2,2,2,2,0,2,2,2,0,2,0,2,2,2,2,2,0,2,
+        2,0,2,0,0,0,0,0,0,0,2,0,2,0,2,0,0,0,0,0,2,
+        2,0,2,0,2,2,2,2,2,2,2,0,2,0,2,2,2,2,2,2,2,
+        2,0,2,0,0,0,0,0,2,0,0,0,2,0,2,0,0,0,0,0,2,
+        2,0,2,2,2,0,2,2,2,0,2,0,2,0,2,2,2,0,2,0,2,
+        2,0,0,0,2,0,2,0,0,0,2,0,2,0,0,0,2,0,2,0,2,
+        2,0,2,2,2,0,2,0,2,0,2,2,2,2,2,0,2,0,2,0,2,
+        2,0,0,0,0,0,2,0,2,0,2,0,0,0,0,0,2,0,2,0,2,
+        2,0,2,2,2,2,2,0,2,0,2,0,2,2,2,2,2,2,2,0,2,
+        2,0,2,0,0,0,2,0,2,0,2,0,0,0,0,0,2,0,0,0,2,
+        2,0,2,0,2,0,2,0,2,2,2,2,2,2,2,0,2,0,2,2,2,
+        2,0,0,0,2,0,2,0,0,0,0,0,2,0,0,0,2,0,0,0,2,
+        2,2,2,2,2,0,2,2,2,0,2,2,2,0,2,2,2,2,2,0,2,
+        2,0,2,0,0,0,2,0,2,0,0,0,0,0,2,0,0,0,0,0,2,
+        2,0,2,0,2,2,2,0,2,2,2,2,2,2,2,2,2,0,2,0,2,
+        2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,2,
+        2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,2
+    );
+
+    let floor: Vec<u32> = vec!(
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+        3,3,3,3,3,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,3,
+        3,2,3,3,3,3,3,3,3,3,3,3,3,3,3,2,2,2,2,2,3,
+        3,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2,3,2,3,
+        3,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,2,3,
+        3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3
+    );
+
+    let ceil: Vec<u32> = vec!(
+        2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+        1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+        2,2,2,2,2,0,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+        2,2,0,0,0,0,2,0,0,0,0,0,2,0,0,0,0,0,0,0,2,
+        2,2,2,2,2,2,2,0,2,2,2,0,2,0,2,2,2,2,2,0,2,
+        2,2,2,0,0,0,0,0,0,0,2,0,2,0,2,0,0,0,0,0,2,
+        2,2,2,0,2,2,2,2,2,2,2,0,2,0,2,2,2,2,2,2,2,
+        2,2,2,0,0,0,0,0,2,0,0,0,2,0,2,0,0,0,0,0,2,
+        2,2,2,2,2,0,2,2,2,0,2,0,2,0,2,2,2,0,2,0,2,
+        2,0,0,0,2,0,2,0,0,0,2,0,2,0,0,0,2,0,2,0,2,
+        2,0,2,2,2,0,2,0,2,0,2,2,2,2,2,0,2,0,2,0,2,
+        2,0,0,0,0,0,2,0,2,0,2,0,0,0,0,0,2,0,2,0,2,
+        2,1,2,2,2,2,2,0,2,0,2,0,2,2,2,2,2,2,2,0,2,
+        2,1,2,2,2,2,2,0,2,0,2,0,0,0,0,0,2,0,0,0,2,
+        2,1,2,2,2,0,2,0,2,2,2,2,2,2,2,0,2,0,2,2,2,
+        2,2,2,2,2,0,2,0,0,0,0,0,2,0,0,0,2,3,3,3,2,
+        2,2,2,2,2,0,2,2,2,0,2,2,2,0,2,2,2,2,2,3,2,
+        2,1,2,3,3,3,2,3,2,0,0,0,0,0,2,1,1,1,1,3,2,
+        2,1,2,3,2,2,2,3,2,2,2,2,2,2,2,2,2,1,2,3,2,
+        2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,3,2,
+        2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,2
+    );
+    //level[1]["intGridCsv"]
+        // .as_array()
+        // .unwrap()
+        // .iter()
+        // .map(|v| v.as_u64().unwrap() as u32)
+        // .collect();
 
     // the size of the map
     let map_size = (
-        level[1]["__cWid"].as_u64().unwrap() as usize,
-        level[1]["__cHei"].as_u64().unwrap() as usize,
+        21,//level[1]["__cWid"].as_u64().unwrap() as usize,
+        21//level[1]["__cHei"].as_u64().unwrap() as usize,
     );
+
+    let map = World {
+        map,
+        floor,
+        ceil,
+        map_size
+    };
 
     // precomputed distance of the render plane from the camera
     let plane_dist: f32 = (screen_width() / 2.) / (FOV / 2.).to_radians().tan();
@@ -120,13 +236,13 @@ async fn main() {
             let target_x = player.0 + x_move;
             let target_y = player.1 + y_move;
 
-            if engine.map[(player.1 as usize) * engine.map_size.0 + (target_x as usize)] == 0 {
+            if engine.map.get_cell(target_x as usize, player.1 as usize).unwrap() == 0 {//[(player.1 as usize) * engine.map_size.0 + (target_x as usize)] == 0 {
                 player.0 = target_x;
             } else {
                 player.0 = target_x.floor() + if player.0 < target_x { -0.01 } else { 1.01 };
             }
 
-            if engine.map[(target_y as usize) * engine.map_size.0 + (player.0 as usize)] == 0 {
+            if engine.map.get_cell(player.0 as usize, target_y as usize).unwrap() == 0 {//[(target_y as usize) * engine.map_size.0 + (player.0 as usize)] == 0 {
                 player.1 = target_y;
             } else {
                 player.1 = target_y.floor() + if player.1 < target_y { -0.01 } else { 1.01 };
@@ -139,27 +255,28 @@ async fn main() {
             let target_x = player.0 - x_move;
             let target_y = player.1 - y_move;
 
-            if engine.map[(player.1 as usize) * engine.map_size.0 + (target_x as usize)] == 0 {
+            if engine.map.get_cell(target_x as usize, player.1 as usize).unwrap() == 0 {
                 player.0 = target_x;
             } else {
                 player.0 = target_x.floor() + if player.0 < target_x { -0.01 } else { 1.01 };
             }
 
-            if engine.map[(target_y as usize) * engine.map_size.0 + (player.0 as usize)] == 0 {
+            if engine.map.get_cell(player.0 as usize, target_y as usize).unwrap() == 0 {
                 player.1 = target_y;
             } else {
                 player.1 = target_y.floor() + if player.1 < target_y { -0.01 } else { 1.01 };
             }
         }
 
-        draw_rectangle(0., 0., screen_width(), screen_height() / 2., SKYBLUE);
-        draw_rectangle(
-            0.,
-            screen_height() / 2.,
-            screen_width(),
-            screen_height() / 2.,
-            DARKGRAY,
-        );
+        let sky_start_x = ((correct_angle(-player_angle*5.5) / (2. * PI)) * sky_width) - sky_width;
+        draw_texture_ex(sky, sky_start_x, 0., WHITE, DrawTextureParams { dest_size: Some(vec2(sky_width, sky_height)), ..Default::default() });
+
+        if sky_start_x > 0. {
+            draw_texture_ex(sky, sky_start_x - sky_width, 0., WHITE, DrawTextureParams { dest_size: Some(vec2(sky_width, sky_height)), ..Default::default() });
+        } else {
+            draw_texture_ex(sky, sky_start_x + sky_width, 0., WHITE, DrawTextureParams { dest_size: Some(vec2(sky_width, sky_height)), ..Default::default() });
+        }
+
 
         for i in 0..(total_num_of_cols as u32) {
             texture = Texture2D::empty();
@@ -228,7 +345,7 @@ async fn main() {
             let rel_angle = correct_angle(player_angle - angle);
             let distance = ray_data.ray_length * f32::cos(rel_angle);
 
-            let line_hight = (1. / distance) * plane_dist;
+            let line_hight = plane_dist / distance;
             let line_offset = (screen_height() as f32 / 2.) - line_hight / 2.;
             draw_texture_ex(
                 texture,
@@ -249,23 +366,47 @@ async fn main() {
                 let mut ty = ((player.1 * BLOCK_SIZE) / 2. + angle.sin() * ar * 64. / dy / rel_angle.cos()) * 2.;
 
                 if tx < 0. {
-                    tx = 64. + tx;
+                    tx += 64.;
                 }
                 if ty < 0. {
-                    ty = 64. + ty;
+                    ty += 64.;
                 }
 
-                let col = plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64);
+                let floor_col = if let Some(v) = engine.map.get_floor((tx / 64.) as usize, (ty / 64.) as usize) {
+                    match v {
+                        1 => bricks_image.get_pixel(tx as u32 % 64, ty as u32 % 64),
+                        2 => blackstone_image.get_pixel(tx as u32 % 64, ty as u32 % 64),
+                        3 => plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64),
+                        _ => plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64)
+                    }
+                } else {
+                    plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64)
+                };
+
+                let ceil_col = if let Some(v) = engine.map.get_ceil((tx / 64.) as usize, (ty / 64.) as usize) {
+                    match v {
+                        1 => bricks_image.get_pixel(tx as u32 % 64, ty as u32 % 64),
+                        2 => blackstone_image.get_pixel(tx as u32 % 64, ty as u32 % 64),
+                        3 => plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64),
+                        _ => plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64)
+                    }
+                } else {
+                    plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64)
+                };
 
                 // adds shading to the floor/ceiling depending on how close it is to the center of the screen
                 let shade = ((y as f32 - screen_height() / 2.) / (screen_height() / 2.) + 0.3).clamp(0., 1.);
-                let col = Color::new(col.r * shade, col.g * shade, col.b * shade, 1.);
+                let floor_col = Color::new(floor_col.r * shade, floor_col.g * shade, floor_col.b * shade, 1.);
+                let ceil_col = Color::new(ceil_col.r * shade, ceil_col.g * shade, ceil_col.b * shade, 1.);
 
-                // draws the calculated color to the floor
-                floor_image.set_pixel(i, y, col);
+                // draws the found floor color to the screen
+                floor_image.set_pixel(i, y, floor_col);
 
-                // also draws same color to the ceiling
-                floor_image.set_pixel(i, screen_height() as u32 - y, col);
+                // only draws the ceiling if there was a texture to draw
+                // otherwise it is left blank for the sky to show
+                if engine.map.get_ceil((tx / 64.) as usize, (ty / 64.) as usize).unwrap() != 0 {
+                    floor_image.set_pixel(i, screen_height() as u32 - y, ceil_col);
+                }
             }
         }
 
@@ -314,9 +455,11 @@ fn get_average_texture_color(texture: &Texture2D) -> Color {
 
 pub fn correct_angle(angle: f32) -> f32 {
     if angle > 2. * PI {
-        angle - (2. * PI)
+        let angle = angle - (2. * PI);
+        correct_angle(angle)
     } else if angle < 0. {
-        angle + (2. * PI)
+        let angle = angle + (2. * PI);
+        correct_angle(angle)
     } else {
         angle
     }
