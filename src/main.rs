@@ -414,7 +414,10 @@ async fn main() {
         floor_tex.update(&floor_image);
 
         // draws the generated floor
-        draw_texture(floor_tex, 0., 0., WHITE);
+        draw_texture_ex(floor_tex, 0., 0., WHITE, DrawTextureParams {
+            dest_size: Some(vec2(screen_width() * WIDTH_3D, screen_height())),
+            ..Default::default()
+        });
 
         draw_text(
             format!("FPS: {}", get_fps()).as_str(),

@@ -16,8 +16,8 @@ A/D: look left/right
 - [X] add easier way to make maps
 - [ ] have nicer LDtk integration
 - [X] add shaded floor/ceiling
-- [ ] allow any texture for use in floor/ceiling
-- [ ] make floor/ceiling drawing work at different WIDTH_3D values other than 1
+- [X] allow any texture for use in floor/ceiling
+- [X] make floor/ceiling drawing work at different WIDTH_3D values other than 1
 - [X] have better way of calculating magic number for floor
 - [X] add better collision system
 - [X] make engine more modular / less dependant on game logic.
