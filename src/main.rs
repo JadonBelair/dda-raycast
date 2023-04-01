@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use raycast_dda::{RayCastEngine, Map};
+use raycast_dda::{RayCastEngine, Map, RayData};
 // use serde_json::Value;
 use std::{collections::HashMap, f32::consts::PI};//, fs, io::Read};
 
@@ -277,10 +277,8 @@ async fn main() {
             draw_texture_ex(sky, sky_start_x + sky_width, 0., WHITE, DrawTextureParams { dest_size: Some(vec2(sky_width, sky_height)), ..Default::default() });
         }
 
-
+        let mut angles = Vec::new();
         for i in 0..(total_num_of_cols as u32) {
-            texture = Texture2D::empty();
-
             // gets the current angle using the size of each column, the total screen size, and trigonometry
             let dist_from_middle = ((total_num_of_cols / 2.) - i as f32) * WIDTH_3D as f32;
             let angle_dist_from_plane = (dist_from_middle.powi(2) + plane_dist.powi(2)).sqrt();
@@ -289,7 +287,14 @@ async fn main() {
             // offsets the angle by the angle of the camera
             angle = correct_angle(player_angle - angle);
 
-            let ray_data = engine.cast_ray(player, angle, VIEW_DISTANCE);
+            angles.push(angle);
+        }
+
+        // casts all the rays and then sorts them so they will be drawn in the correct order
+        let rays = sort_rays(engine.cast_rays_multi(player, angles.clone(), VIEW_DISTANCE), angles.clone());
+
+        for (i, ray_data) in rays.iter().enumerate() {
+            let angle = ray_data.ray_angle;
 
             // uses the rays direction and length to calculate where the collision occured
             let end_point = (
@@ -299,11 +304,10 @@ async fn main() {
 
             // checks if the ray collided with
             // anything and if so, get its texture
+            // otherwise uses first texture
             match ray_data.hit_val {
-                Some(val) => {
-                    texture = textures.get(&val).unwrap().0;
-                }
-                None => (),
+                Some(val) => texture = textures.get(&val).unwrap().0,
+                None => texture = textures.get(&0).unwrap().0
             }
 
             // uses how far into a cell the ray collided
@@ -400,12 +404,12 @@ async fn main() {
                 let ceil_col = Color::new(ceil_col.r * shade, ceil_col.g * shade, ceil_col.b * shade, 1.);
 
                 // draws the found floor color to the screen
-                floor_image.set_pixel(i, y, floor_col);
+                floor_image.set_pixel(i as u32, y, floor_col);
 
                 // only draws the ceiling if there was a texture to draw
                 // otherwise it is left blank for the sky to show
                 if engine.map.get_ceil((tx / 64.) as usize, (ty / 64.) as usize).unwrap() != 0 {
-                    floor_image.set_pixel(i, screen_height() as u32 - y, ceil_col);
+                    floor_image.set_pixel(i as u32, screen_height() as u32 - y, ceil_col);
                 }
             }
         }
@@ -463,4 +467,25 @@ pub fn correct_angle(angle: f32) -> f32 {
     } else {
         angle
     }
+}
+
+pub fn sort_rays(mut rays: Vec<RayData>, angles: Vec<f32>) -> Vec<RayData> {
+
+    for (i, a) in angles.iter().enumerate() {
+        let mut pos = 0;
+        // finds the ray with the same angle and gets its position
+        for i in 0..rays.len() {
+            if rays[i].ray_angle == *a {
+                pos = i;
+                break;
+            }
+        }
+
+        // swaps the current ray and the ray with the correct angle
+        let tmp = rays[i];
+        rays[i] = rays[pos];
+        rays[pos] = tmp;
+    }
+
+    rays
 }

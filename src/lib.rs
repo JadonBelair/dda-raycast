@@ -1,10 +1,13 @@
+use rayon::prelude::*;
+use std::sync::mpsc;
+
 pub trait Map {
     fn get_cell(&self, x: usize, y: usize) -> Option<u32>;
     fn get_size(&self) -> (usize, usize);
 }
 
 /// holds information useful when looking at a casted ray
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct RayData {
     /// the length of the ray from the starting position to when it collided
     pub ray_length: f32,
@@ -31,12 +34,26 @@ pub struct RayCastEngine<T: Map> {
     pub map_size: (usize, usize),
 }
 
-impl<T: Map> RayCastEngine<T> {
+impl<T: Map + std::marker::Sync> RayCastEngine<T> {
     /// creates a new engine with the provided map.
     /// maps are 1D vectors so user must provide the size
     /// of the map for use during the ray cast process
     pub fn new(map: T, map_size: (usize, usize)) -> Self {
         Self { map, map_size }
+    }
+
+    pub fn cast_rays_multi(&self, pos: (f32, f32), angles: Vec<f32>, max_distance: f32) -> Vec<RayData> {
+        let mut rays = Vec::new();
+
+        let (tx, rx) = mpsc::channel();
+
+        angles.par_iter().for_each_with(tx, |tx, angle| tx.send(self.cast_ray(pos, *angle, max_distance)).unwrap());
+
+        for ray in rx {
+            rays.push(ray);
+        }
+
+        rays
     }
 
     /// casts a single ray from the given position with the
