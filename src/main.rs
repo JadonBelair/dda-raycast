@@ -290,10 +290,10 @@ async fn main() {
             angles.push(angle);
         }
 
-        // casts all the rays and then sorts them so they will be drawn in the correct order
-        let rays = sort_rays(engine.cast_rays_multi(player, angles.clone(), VIEW_DISTANCE), angles.clone());
+        // casts all the rays and stores them in a hashmap along with their column
+        let rays = engine.cast_rays_multi(player, angles.clone(), VIEW_DISTANCE);
 
-        for (i, ray_data) in rays.iter().enumerate() {
+        for (i, ray_data) in rays {
             let angle = ray_data.ray_angle;
 
             // uses the rays direction and length to calculate where the collision occured
