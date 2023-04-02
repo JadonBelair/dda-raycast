@@ -362,36 +362,33 @@ async fn main() {
             // draws the floor for the current column
             for y in (line_offset as u32 + line_hight as u32)..(screen_height() as u32) {
                 let dy = (y - (HEIGHT as u32 / 2)) as f32;
-                let mut tx = ((player.0 * BLOCK_SIZE) / 2. + angle.cos() * ar * 64. / dy / rel_angle.cos()) * 2.;
-                let mut ty = ((player.1 * BLOCK_SIZE) / 2. + angle.sin() * ar * 64. / dy / rel_angle.cos()) * 2.;
 
-                if tx < 0. {
-                    tx += 64.;
-                }
-                if ty < 0. {
-                    ty += 64.;
-                }
+                // precalculate as much of the equations as possible to save on number of divisions
+                let f = ar * 2. / (dy * rel_angle.cos());
+                
+                let tx = player.0 + angle.cos() * f;
+                let ty = player.1 + angle.sin() * f;
 
-                let floor_col = if let Some(v) = engine.map.get_floor((tx / 64.) as usize, (ty / 64.) as usize) {
+                let floor_col = if let Some(v) = engine.map.get_floor(tx as usize, ty as usize) {
                     match v {
-                        1 => bricks_image.get_pixel(tx as u32 % 64, ty as u32 % 64),
-                        2 => blackstone_image.get_pixel(tx as u32 % 64, ty as u32 % 64),
-                        3 => plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64),
-                        _ => plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64)
+                        1 => bricks_image.get_pixel(((tx % 1.) * 64.) as u32, ((ty % 1.) * 64.) as u32),
+                        2 => blackstone_image.get_pixel(((tx % 1.) * 64.) as u32, ((ty % 1.) * 64.) as u32),
+                        3 => plank_image.get_pixel(((tx % 1.) * 64.) as u32, ((ty % 1.) * 64.) as u32),
+                        _ => plank_image.get_pixel(((tx % 1.) * 64.) as u32, ((ty % 1.) * 64.) as u32)
                     }
                 } else {
-                    plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64)
+                    plank_image.get_pixel(((tx % 1.) * 64.) as u32, ((ty % 1.) * 64.) as u32)
                 };
 
-                let ceil_col = if let Some(v) = engine.map.get_ceil((tx / 64.) as usize, (ty / 64.) as usize) {
+                let ceil_col = if let Some(v) = engine.map.get_ceil(tx as usize, ty as usize) {
                     match v {
-                        1 => bricks_image.get_pixel(tx as u32 % 64, ty as u32 % 64),
-                        2 => blackstone_image.get_pixel(tx as u32 % 64, ty as u32 % 64),
-                        3 => plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64),
-                        _ => plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64)
+                        1 => bricks_image.get_pixel(((tx % 1.) * 64.) as u32, ((ty % 1.) * 64.) as u32),
+                        2 => blackstone_image.get_pixel(((tx % 1.) * 64.) as u32, ((ty % 1.) * 64.) as u32),
+                        3 => plank_image.get_pixel(((tx % 1.) * 64.) as u32, ((ty % 1.) * 64.) as u32),
+                        _ => plank_image.get_pixel(((tx % 1.) * 64.) as u32, ((ty % 1.) * 64.) as u32)
                     }
                 } else {
-                    plank_image.get_pixel(tx as u32 % 64, ty as u32 % 64)
+                    plank_image.get_pixel(((tx % 1.) * 64.) as u32, ((ty % 1.) * 64.) as u32)
                 };
 
                 // adds shading to the floor/ceiling depending on how close it is to the center of the screen
@@ -404,7 +401,7 @@ async fn main() {
 
                 // only draws the ceiling if there was a texture to draw
                 // otherwise it is left blank for the sky to show
-                if engine.map.get_ceil((tx / 64.) as usize, (ty / 64.) as usize).unwrap() != 0 {
+                if engine.map.get_ceil(tx as usize, ty as usize).unwrap() != 0 {
                     floor_image.set_pixel(i, screen_height() as u32 - y, ceil_col);
                 }
             }
