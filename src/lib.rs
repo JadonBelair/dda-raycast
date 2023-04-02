@@ -1,10 +1,14 @@
+use rayon::prelude::*;
+use std::{sync::mpsc, collections::HashMap};
+
+/// trait to use to make your own custom structure for maps
 pub trait Map {
     fn get_cell(&self, x: usize, y: usize) -> Option<u32>;
     fn get_size(&self) -> (usize, usize);
 }
 
 /// holds information useful when looking at a casted ray
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct RayData {
     /// the length of the ray from the starting position to when it collided
     pub ray_length: f32,
@@ -31,12 +35,29 @@ pub struct RayCastEngine<T: Map> {
     pub map_size: (usize, usize),
 }
 
-impl<T: Map> RayCastEngine<T> {
+impl<T: Map + std::marker::Sync> RayCastEngine<T> {
     /// creates a new engine with the provided map.
     /// maps are 1D vectors so user must provide the size
     /// of the map for use during the ray cast process
     pub fn new(map: T, map_size: (usize, usize)) -> Self {
         Self { map, map_size }
+    }
+
+    /// takes a vector of angles for rays to be casted at and
+    /// uses rayon to cast them all with multithreading then 
+    /// stores them in a hashmap along with their angles index
+    pub fn cast_rays_multi(&self, pos: (f32, f32), angles: Vec<f32>, max_distance: f32) -> HashMap<usize, RayData> {
+        let mut rays = HashMap::new();
+
+        let (tx, rx) = mpsc::channel();
+
+        angles.par_iter().enumerate().for_each_with(tx, |tx, (i, angle)| tx.send((i, self.cast_ray(pos, *angle, max_distance))).unwrap());
+
+        for (i, ray) in rx {
+            rays.insert(i, ray);
+        }
+
+        rays
     }
 
     /// casts a single ray from the given position with the

@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 macroquad = "0.3.25"
 serde_json = "*"
+rayon = "*"
