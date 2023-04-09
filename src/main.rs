@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use raycast_dda::{RayCastEngine, Map, RayData};
+use raycast_dda::{RayCastEngine, Map};
 // use serde_json::Value;
 use std::{collections::HashMap, f32::consts::PI};//, fs, io::Read};
 
@@ -467,25 +467,4 @@ pub fn correct_angle(angle: f32) -> f32 {
     } else {
         angle
     }
-}
-
-pub fn sort_rays(mut rays: Vec<RayData>, angles: Vec<f32>) -> Vec<RayData> {
-
-    for (i, a) in angles.iter().enumerate() {
-        let mut pos = 0;
-        // finds the ray with the same angle and gets its position
-        for i in 0..rays.len() {
-            if rays[i].ray_angle == *a {
-                pos = i;
-                break;
-            }
-        }
-
-        // swaps the current ray and the ray with the correct angle
-        let tmp = rays[i];
-        rays[i] = rays[pos];
-        rays[pos] = tmp;
-    }
-
-    rays
 }

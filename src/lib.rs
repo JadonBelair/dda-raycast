@@ -1,5 +1,5 @@
 use rayon::prelude::*;
-use std::{sync::mpsc, collections::HashMap};
+use std::sync::mpsc;
 
 /// trait to use to make your own custom structure for maps
 pub trait Map {
@@ -46,15 +46,15 @@ impl<T: Map + std::marker::Sync> RayCastEngine<T> {
     /// takes a vector of angles for rays to be casted at and
     /// uses rayon to cast them all with multithreading then 
     /// stores them in a hashmap along with their angles index
-    pub fn cast_rays_multi(&self, pos: (f32, f32), angles: Vec<f32>, max_distance: f32) -> HashMap<usize, RayData> {
-        let mut rays = HashMap::new();
+    pub fn cast_rays_multi(&self, pos: (f32, f32), angles: Vec<f32>, max_distance: f32) -> Vec<(usize, RayData)> {
+        let mut rays = Vec::new();
 
         let (tx, rx) = mpsc::channel();
 
         angles.par_iter().enumerate().for_each_with(tx, |tx, (i, angle)| tx.send((i, self.cast_ray(pos, *angle, max_distance))).unwrap());
 
         for (i, ray) in rx {
-            rays.insert(i, ray);
+            rays.push((i, ray));
         }
 
         rays
